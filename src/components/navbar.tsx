@@ -25,13 +25,13 @@ export const NavBar = () => {
   };
 
   return (
-    <div className="flex justify-between items-center pt-4 w-full text-text ">
+    <div className="flex justify-between items-center pt-4 w-full px-4">
       <div className="flex items-center gap-2">
-        <BsWallet2 className="text-text font-bold" size={24} />
-        <p className="text-2xl font-bold tracking-tighter text-text">wallet xyz.</p>
+        <BsWallet2 className="text-foreground font-bold" size={24} />
+        <p className="text-2xl font-bold tracking-tighter text-foreground">wallet xyz.</p>
       </div>
       <div className="flex items-center gap-2">
-        <span className="text-md text-text font-bold">{isDark ? "Dark" : "Light"}</span>
+        <span className="text-md text-foreground font-bold">{isDark ? "Dark" : "Light"}</span>
         <button
           onClick={toggleTheme}
           className={cn(
@@ -46,7 +46,7 @@ export const NavBar = () => {
             )}
           >
             {isDark ? (
-              <svg className="w-3 h-3 fill-text" viewBox="0 0 20 20">
+              <svg className="w-3 h-3 fill-foreground" viewBox="0 0 20 20">
                 <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
               </svg>
             ) : (
