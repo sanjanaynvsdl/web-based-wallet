@@ -4,9 +4,11 @@ import React from "react";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { BsWallet2 } from "react-icons/bs";
+import { useRouter } from "next/navigation";
 
 export const NavBar = () => {
   const [isDark, setIsDark] = useState(false);
+   const router = useRouter();
 
   useEffect(() => {
     const htmlElement = document.documentElement;
@@ -24,10 +26,14 @@ export const NavBar = () => {
     setIsDark(!isDark);
   };
 
+  const routeToHomePage = ()=>{
+     router.push(`/`);
+
+  }
   return (
     <div className="sticky top-0 z-50 bg-background/80 backdrop-blur-md">
       <div className="max-w-6xl mx-auto px-4 py-6 flex justify-between items-center w-full">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 cursor-pointer" onClick={routeToHomePage}>
           <BsWallet2 className="text-foreground font-bold" size={24} />
           <p className="sm:text-2xl  text-lg font-bold tracking-tighter text-foreground">wallet xyz.</p>
         </div>

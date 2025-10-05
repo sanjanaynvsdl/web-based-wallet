@@ -222,7 +222,7 @@ function WalletContent() {
                   onClick={() => setShowSecretPhrase(!showSecretPhrase)}
                   className="w-full px-6 py-4 flex justify-between items-center hover:bg-accent/10 transition-all duration-200 cursor-pointer"
                 >
-                  <h2 className="text-xl font-semibold text-foreground">Secret Recovery Phrase</h2>
+                  <h2 className="text-2xl tracking-tighter font-bold text-foreground">Secret Recovery Phrase</h2>
                   <FaChevronDown
                     className={`transition-transform duration-300 ${showSecretPhrase ? "rotate-180" : ""}`}
                   />
@@ -260,7 +260,7 @@ function WalletContent() {
           {wallets.length > 0 && (
             <div className=" rounded-lg  space-y-4">
               <div className="flex justify-between items-center">
-                <h2 className="text-xl font-semibold text-foreground">Your Wallets</h2>
+                <h2 className="text-2xl font-bold tracking-tighter text-foreground">Your Wallets</h2>
                 <div className="flex justify-center gap-2 ">
                   <Button
                   onClick={handleGenerateWallet}
