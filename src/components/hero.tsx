@@ -11,11 +11,11 @@ export const Hero = () => {
 
   return (
     <div className="flex justify-center items-center flex-col min-h-[calc(100vh-240px)]">
-      <div className="max-w-3xl text-center">
-        <p className="text-foreground font-bold sm:text-4xl text-2xl tracking-tighter text-center">
+      <div className="text-center">
+        <p className=" sm:max-w-3xl max-w-2xl text-foreground font-bold sm:text-4xl text-2xl tracking-tighter text-center p-2">
           &ldquo;WalletXYZ&rdquo; is multi-chain ready.
-          <br />
-          Choose where You&rsquo;d like to start.{" "}
+        <p>Choose where You&rsquo;d like to start.{" "}</p>
+          
         </p>
         <p className="text-muted-foreground text-lg md:text-xl mt-4 text-center">
           A web based wallet helps to create wallets across chains

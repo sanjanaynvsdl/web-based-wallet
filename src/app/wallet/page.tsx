@@ -196,7 +196,7 @@ function WalletContent() {
             {/* Input Section - Only show if no wallets exist */}
             {wallets.length === 0 && (
               <div className="rounded-lg p-2 ">
-                <div className="flex flex-row justify-center gap-4">
+                <div className="flex sm:flex-row flex-col justify-center gap-4">
                   <input
                     type="text"
                     value={inputPhrase}
