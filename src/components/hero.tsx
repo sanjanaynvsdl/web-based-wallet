@@ -1,6 +1,14 @@
+"use client";
 import { Button } from "@/components/ui/button";
+import { useRouter } from "next/navigation";
 
 export const Hero = () => {
+  const router = useRouter();
+
+  const handleChainSelect = (chain: string) => {
+    router.push(`/wallet?chain=${chain.toLowerCase()}`);
+  };
+
   return (
     <div className="flex justify-center items-center flex-col min-h-[calc(100vh-240px)]">
       <div className="max-w-3xl text-center">
@@ -15,10 +23,16 @@ export const Hero = () => {
       </div>
 
       <div className="flex gap-2 mt-6 justify-center">
-        <Button className="bg-primary text-primary-foreground text-md font-medium cursor-pointer">
+        <Button
+          onClick={() => handleChainSelect("Solana")}
+          className="bg-primary text-primary-foreground text-md font-medium cursor-pointer hover:bg-primary/90"
+        >
           Solana
         </Button>
-        <Button className="bg-primary text-primary-foreground text-md font-medium cursor-pointer">
+        <Button
+          onClick={() => handleChainSelect("Ethereum")}
+          className="bg-primary text-primary-foreground text-md font-medium cursor-pointer hover:bg-primary/90"
+        >
           Ethereum
         </Button>
       </div>

@@ -1,5 +1,5 @@
 "use client";
-import Image from "next/image";
+
 import React from "react";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
@@ -32,11 +32,11 @@ export const NavBar = () => {
           <p className="sm:text-2xl  text-lg font-bold tracking-tighter text-foreground">wallet xyz.</p>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-md text-foreground font-bold">{isDark ? "Dark" : "Light"}</span>
+          <span className="hidden sm:block text-md text-foreground font-bold">{isDark ? "Dark" : "Light"}</span>
           <button
             onClick={toggleTheme}
             className={cn(
-              "relative w-14 h-7 rounded-full p-1 transition-colors bg-primary dark:bg-primary hover:opacity-80"
+              "relative w-14 h-7 cursor-pointer rounded-full p-1 transition-colors bg-primary dark:bg-primary hover:opacity-80"
             )}
             aria-label="Toggle theme"
           >
