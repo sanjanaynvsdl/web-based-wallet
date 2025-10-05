@@ -1,7 +1,7 @@
 "use client";
 import { Button } from "@/components/ui/button";
 import { Container } from "@/components/container";
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { generateSolanaKeyPair, generateEthereumKeyPair } from "@/lib/functions";
 import { FaChevronDown, FaEye, FaEyeSlash, FaCopy, FaRegTrashAlt  } from "react-icons/fa";
@@ -20,7 +20,7 @@ interface StoredWallet {
   publicKey: string;
 }
 
-export default function WalletPage() {
+function WalletContent() {
   const searchParams = useSearchParams();
   const chain = searchParams.get("chain") || "solana";
 
@@ -344,5 +344,13 @@ export default function WalletPage() {
         </div>
       </Container>
     </>
+  );
+}
+
+export default function WalletPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <WalletContent />
+    </Suspense>
   );
 }
