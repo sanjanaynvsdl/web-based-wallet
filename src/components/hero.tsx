@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 
 export const Hero = () => {
   return (
-    <div className="flex justify-center items-center flex-col min-h-[calc(100vh-200px)]">
+    <div className="flex justify-center items-center flex-col min-h-[calc(100vh-240px)]">
       <div className="max-w-3xl text-center">
         <p className="text-foreground font-bold sm:text-4xl text-2xl tracking-tighter text-center">
           &ldquo;WalletXYZ&rdquo; is multi-chain ready.
