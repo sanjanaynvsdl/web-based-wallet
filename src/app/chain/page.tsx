@@ -4,7 +4,7 @@ import { Container } from "@/components/container";
 import { useSearchParams } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import {
   ChevronDown,
   Copy,
@@ -31,7 +31,7 @@ interface StoredWallet {
   publicKey: string;
 }
 
-export default function Chain() {
+function ChainContent() {
   const searchParams = useSearchParams();
   const wallet = searchParams.get("wallet") || "solana";
   const [seedphrase, setSeedPhrase] = useState("");
@@ -501,5 +501,13 @@ export default function Chain() {
         </div>
       </Container>
     </>
+  );
+}
+
+export default function Chain() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <ChainContent />
+    </Suspense>
   );
 }
