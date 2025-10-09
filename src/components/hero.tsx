@@ -29,12 +29,12 @@ export const Hero = () => {
         >
           Solana
         </Button>
-        {/* <Button
+        <Button
           onClick={() => handleChainSelect("Ethereum")}
           className="bg-primary text-primary-foreground text-md font-medium cursor-pointer hover:bg-primary/90"
         >
           Ethereum
-        </Button> */}
+        </Button>
       </div>
     </div>
   );

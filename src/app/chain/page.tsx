@@ -4,184 +4,502 @@ import { Container } from "@/components/container";
 import { useSearchParams } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   ChevronDown,
-  ChevronUpIcon,
   Copy,
   PlusIcon,
   Trash2,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import {
   generateEthereumKeyPair,
   generateSolanaKeyPair,
 } from "@/lib/functions";
+import { toast, Toaster } from "sonner";
 
 interface Wallet {
-  seedphrase: string;
+  id: number;
   publicKey: string;
-  privatekey: string;
+  privateKey?: string;
+  isPrivateKeyVisible: boolean;
+}
+
+interface StoredWallet {
+  id: number;
+  publicKey: string;
 }
 
 export default function Chain() {
   const searchParams = useSearchParams();
   const wallet = searchParams.get("wallet") || "solana";
   const [seedphrase, setSeedPhrase] = useState("");
+  const [inputPhrase, setInputPhrase] = useState("");
   const [showSeedPhrase, setShowSeedPhrase] = useState(false);
   const [solWallets, setSolWallets] = useState<Wallet[]>([]);
   const [ethWallets, setEthWallets] = useState<Wallet[]>([]);
+  const [isDark, setIsDark] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
-  console.log(wallet);
+  const currentWallets = wallet === "solana" ? solWallets : ethWallets;
+  const setCurrentWallets =
+    wallet === "solana" ? setSolWallets : setEthWallets;
+
+  // Detect theme on mount
+  useEffect(() => {
+    const checkTheme = () => {
+      const isDarkMode = document.documentElement.classList.contains("dark");
+      setIsDark(isDarkMode);
+    };
+
+    checkTheme();
+
+    const observer = new MutationObserver(checkTheme);
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["class"],
+    });
+
+    return () => observer.disconnect();
+  }, []);
+
+  // Load from localStorage on mount
+  useEffect(() => {
+    loadLocalStorage();
+  }, []);
+
+  function saveToLocalStorage(
+    phrase: string,
+    solWalletsData: Wallet[],
+    ethWalletsData: Wallet[]
+  ) {
+    localStorage.setItem("seedphrase", phrase);
+
+    const solWalletsToStore: StoredWallet[] = solWalletsData.map(
+      ({ id, publicKey }) => ({
+        id,
+        publicKey,
+      })
+    );
+
+    const ethWalletsToStore: StoredWallet[] = ethWalletsData.map(
+      ({ id, publicKey }) => ({
+        id,
+        publicKey,
+      })
+    );
+
+    localStorage.setItem("sol_wallets", JSON.stringify(solWalletsToStore));
+    localStorage.setItem("eth_wallets", JSON.stringify(ethWalletsToStore));
+  }
 
   function loadLocalStorage() {
     const seedPhrase = localStorage.getItem("seedphrase");
     const sol_wallets = localStorage.getItem("sol_wallets");
     const eth_wallets = localStorage.getItem("eth_wallets");
+
+    if (seedPhrase) {
+      setSeedPhrase(seedPhrase);
+    }
+
+    if (sol_wallets) {
+      const storedSolWallets: StoredWallet[] = JSON.parse(sol_wallets);
+      const solWalletsWithoutPrivateKeys: Wallet[] = storedSolWallets.map(
+        (w) => ({
+          ...w,
+          isPrivateKeyVisible: false,
+        })
+      );
+      setSolWallets(solWalletsWithoutPrivateKeys);
+    }
+
+    if (eth_wallets) {
+      const storedEthWallets: StoredWallet[] = JSON.parse(eth_wallets);
+      const ethWalletsWithoutPrivateKeys: Wallet[] = storedEthWallets.map(
+        (w) => ({
+          ...w,
+          isPrivateKeyVisible: false,
+        })
+      );
+      setEthWallets(ethWalletsWithoutPrivateKeys);
+    }
   }
 
   function generateSolKeyPair() {
-    const currWalletLen = solWallets.length;
-    const { secretPhrase, privateKey, publicKey } = generateSolanaKeyPair(
-      seedphrase,
-      currWalletLen
-    );
+    setIsLoading(true);
+    try {
+      const currWalletLen = solWallets.length;
+      const phraseToUse = inputPhrase.trim() || seedphrase || null;
 
-    const newWallet = {
-      seedphrase: secretPhrase,
-      publicKey: publicKey,
-      privateKey: privateKey,
-    };
+      const { secretPhrase, privateKey, publicKey } = generateSolanaKeyPair(
+        phraseToUse,
+        currWalletLen
+      );
 
-    setSolWallets([...solWallets, newWallet]);
+      const newWallet: Wallet = {
+        id: currWalletLen,
+        publicKey: publicKey,
+        isPrivateKeyVisible: false,
+      };
+
+      const updatedWallets = [...solWallets, newWallet];
+      setSolWallets(updatedWallets);
+      setSeedPhrase(secretPhrase);
+      setInputPhrase("");
+      saveToLocalStorage(secretPhrase, updatedWallets, ethWallets);
+
+      toast.success("Solana wallet generated successfully!");
+    } catch (error) {
+      toast.error("Failed to generate Solana wallet");
+      console.error(error);
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   function generateEthKeyPair() {
-    const ethWalletsLength = ethWallets.length;
-    const { secretPhrase, privateKey, publicKey } = generateEthereumKeyPair(
-      seedphrase,
-      ethWalletsLength
-    );
-    console.log("---------eth key pair is ---------");
-    console.log("Seed phrase : " + secretPhrase);
-    console.log("public key : " + publicKey);
-    console.log("private key : " + privateKey);
-    const newWallet = {
-      seedphrase: secretPhrase,
-      publicKey: publicKey,
-      privateKey: privateKey,
-    };
+    setIsLoading(true);
+    try {
+      const ethWalletsLength = ethWallets.length;
+      const phraseToUse = inputPhrase.trim() || seedphrase || null;
 
-    setEthWallets([...ethWallets, newWallet]);
+      const { secretPhrase, privateKey, publicKey } = generateEthereumKeyPair(
+        phraseToUse,
+        ethWalletsLength
+      );
+
+      const newWallet: Wallet = {
+        id: ethWalletsLength,
+        publicKey: publicKey,
+        isPrivateKeyVisible: false,
+      };
+
+      const updatedWallets = [...ethWallets, newWallet];
+      setEthWallets(updatedWallets);
+      setSeedPhrase(secretPhrase);
+      setInputPhrase("");
+      saveToLocalStorage(secretPhrase, solWallets, updatedWallets);
+
+      toast.success("Ethereum wallet generated successfully!");
+    } catch (error) {
+      toast.error("Failed to generate Ethereum wallet");
+      console.error(error);
+    } finally {
+      setIsLoading(false);
+    }
   }
 
+  const handleAddWallet = () => {
+    if (wallet === "solana") {
+      generateSolKeyPair();
+    } else {
+      generateEthKeyPair();
+    }
+  };
+
+  const handleClearWallets = () => {
+    if (wallet === "solana") {
+      setSolWallets([]);
+      saveToLocalStorage(seedphrase, [], ethWallets);
+    } else {
+      setEthWallets([]);
+      saveToLocalStorage(seedphrase, solWallets, []);
+    }
+    toast.success(`All ${wallet} wallets cleared!`);
+  };
+
+  const handleDeleteWallet = (id: number) => {
+    if (wallet === "solana") {
+      const updatedWallets = solWallets.filter((w) => w.id !== id);
+      setSolWallets(updatedWallets);
+      saveToLocalStorage(seedphrase, updatedWallets, ethWallets);
+    } else {
+      const updatedWallets = ethWallets.filter((w) => w.id !== id);
+      setEthWallets(updatedWallets);
+      saveToLocalStorage(seedphrase, solWallets, updatedWallets);
+    }
+    toast.success("Wallet deleted successfully!");
+  };
+
+  const togglePrivateKeyVisibility = async (id: number) => {
+    const walletItem = currentWallets.find((w) => w.id === id);
+    if (!walletItem) return;
+
+    if (!walletItem.isPrivateKeyVisible) {
+      setIsLoading(true);
+      try {
+        const generateFunc =
+          wallet === "ethereum"
+            ? generateEthereumKeyPair
+            : generateSolanaKeyPair;
+        const walletData = generateFunc(seedphrase, id);
+
+        const updatedWallets = currentWallets.map((w) =>
+          w.id === id
+            ? {
+                ...w,
+                privateKey: walletData.privateKey,
+                isPrivateKeyVisible: true,
+              }
+            : w
+        );
+        setCurrentWallets(updatedWallets);
+      } catch (error) {
+        toast.error("Failed to retrieve private key");
+        console.error(error);
+      } finally {
+        setIsLoading(false);
+      }
+    } else {
+      const updatedWallets = currentWallets.map((w) =>
+        w.id === id
+          ? { ...w, privateKey: undefined, isPrivateKeyVisible: false }
+          : w
+      );
+      setCurrentWallets(updatedWallets);
+    }
+  };
+
+  const copyToClipboard = (text: string, label: string = "Text") => {
+    navigator.clipboard.writeText(text);
+    toast.success(`${label} copied to clipboard!`);
+  };
+
+  // TODO: Implement Check Balance functionality
+  // This should fetch the balance from the blockchain for the given public key
+  const handleCheckBalance = async (publicKey: string) => {
+    toast.info("Check Balance feature coming soon!");
+  };
+
+  const secretPhraseWords = seedphrase.split(" ").filter((word) => word);
+
   return (
-    <Container>
-      <div className="flex justify-center items-center">
-        <div className="w-full max-w-3xl">
-          <div className="flex flex-col items-center text-center">
-            <h1 className="text-3xl sm:text-4xl font-bold text-foreground tracking-tighter ">
-              {" "}
-              {wallet} Wallet{" "}
-            </h1>
-
-            <p>Hello, generating the public and private keys, </p>
-            <div className="flex justify-center gap-2 mt-4 w-full ">
-              <Input
-                type="Seed Phrase"
-                placeholder="Seed Phrase"
-                className="flex-1 focus:border-spacing-0.5"
-                value={seedphrase}
-                onChange={(e) => setSeedPhrase(e.target.value)}
-              />
-              <Button
-                onClick={generateEthKeyPair}
-                className="bg-primary hover:bg-primary/80 text-foreground  px-4 py-2 rounded-md cursor-pointer "
-              >
-                Generate Wallet
-              </Button>
+    <>
+      <Toaster
+        position="bottom-right"
+        richColors
+        theme={isDark ? "dark" : "light"}
+        toastOptions={{
+          style: {
+            background: isDark ? "#1a1a16" : "#ffffff",
+            color: isDark ? "#f5f6ef" : "#0f1009",
+            border: isDark ? "1px solid #333330" : "1px solid #d4d4d0",
+          },
+        }}
+      />
+      <Container>
+        <div className="flex justify-center items-center min-h-[calc(100vh-300px)] py-8">
+          <div className="w-full max-w-3xl space-y-4">
+            {/* Header */}
+            <div className="text-center space-y-2">
+              <h1 className="text-3xl tracking-tighter md:text-4xl font-bold text-foreground capitalize">
+                {wallet} Wallet
+              </h1>
+              <p className="text-muted-foreground">
+                Generate or import your {wallet} wallet
+              </p>
             </div>
 
-            {/* Seed phrase -12 words */}
+            {/* Input Section - Only show if no wallets exist */}
+            {currentWallets.length === 0 && (
+              <div className="rounded-lg p-2">
+                <div className="flex sm:flex-row flex-col justify-center gap-4">
+                  <Input
+                    type="text"
+                    value={inputPhrase}
+                    onChange={(e) => setInputPhrase(e.target.value)}
+                    placeholder="Enter your 12-word secret phrase (leave blank to generate new)"
+                    className="flex-1 border border-input bg-background text-foreground px-4 py-3 rounded-md focus:outline-none focus:ring-2 focus:ring-ring transition-all"
+                  />
 
-            <div className="mt-4 border p-4 w-full  rounded-lg">
-              <div className="flex justify-between">
-                <h1 className="font-bold text-2xl text-foreground tracking-tighter">
-                  Your Seed Phrase
-                </h1>
+                  <Button
+                    onClick={handleAddWallet}
+                    disabled={isLoading}
+                    className="bg-primary text-primary-foreground hover:bg-primary/80 cursor-pointer p-4 text-md font-semibold"
+                  >
+                    {isLoading ? "Generating..." : "Generate Wallet"}
+                  </Button>
+                </div>
+              </div>
+            )}
 
-                <Button
-                  className="text-foreground cursor-pointer"
+            {/* Secret Phrase Accordion */}
+            {currentWallets.length > 0 && seedphrase && (
+              <div className="border border-border rounded-lg overflow-hidden">
+                <button
                   onClick={() => setShowSeedPhrase(!showSeedPhrase)}
+                  className="w-full px-6 py-4 flex justify-between items-center hover:bg-accent/10 transition-all duration-200 cursor-pointer"
                 >
-                  {showSeedPhrase ? (
-                    <ChevronUpIcon size={20} />
-                  ) : (
-                    <ChevronDown size={20} />
-                  )}
-                </Button>
-              </div>
-              {showSeedPhrase && (
-                <div>
-                  <p>{seedphrase} fakfuk aufhuuodf adniUDF ADFUNo </p>
+                  <h2 className="text-2xl tracking-tighter font-bold text-foreground">
+                    Secret Recovery Phrase
+                  </h2>
+                  <ChevronDown
+                    className={`transition-transform duration-300 ${
+                      showSeedPhrase ? "rotate-180" : ""
+                    }`}
+                  />
+                </button>
+
+                <div
+                  className={`transition-all duration-300 ease-in-out overflow-hidden ${
+                    showSeedPhrase
+                      ? "max-h-96 opacity-100"
+                      : "max-h-0 opacity-0"
+                  }`}
+                >
+                  <div className="px-6 pb-6">
+                    <div
+                      className="grid grid-cols-3 sm:grid-cols-4 gap-3 mt-4 cursor-pointer"
+                      onClick={() =>
+                        copyToClipboard(seedphrase, "Secret phrase")
+                      }
+                      title="Click to copy"
+                    >
+                      {secretPhraseWords.map((word, index) => (
+                        <div
+                          key={index}
+                          className="border border-border rounded-md px-3 py-2 text-center bg-muted hover:bg-muted/70 transition-all duration-200"
+                        >
+                          <p className="text-sm font-medium">{word}</p>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-4 text-center">
+                      Click anywhere on the grid to copy to clipboard
+                    </p>
+                  </div>
                 </div>
-              )}
-            </div>
-
-            {/* Render Wallet -btns */}
-            <div className="mt-6 w-full">
-              <div className="flex justify-between w-full">
-                <h1 className="text-foreground font-bold text-2xl sm:text-3xl px-3 tracking-tighter ">
-                  Wallets
-                </h1>
-                <div className="flex gap-2 justify-center">
-                  <Button className="p-4 bg-primary cursor-pointer text-foreground">
-                    <PlusIcon />
-                    <p> Add wallet</p>
-                  </Button>
-
-                  <Button className="bg-destructive/90 p-2 hover:bg-destructive/80 cursor-pointer  text-foreground">
-                    <Trash2 size={20} />
-                    Clear Wallets
-                  </Button>
-                </div>
               </div>
-            </div>
+            )}
 
-            {/* Render all wallets with get Balance functionality */}
-
-            <div className="mt-4 p-2 border w-full rounded-lg">
-              <div className="flex p-2 flex-col text-left">
+            {/* Wallets Section */}
+            {currentWallets.length > 0 && (
+              <div className="rounded-lg space-y-4">
                 <div className="flex justify-between items-center">
-                  <p className="font-medium text-xl tracking-tight ">
-                    Wallet 1
-                  </p>
-                  <div className="flex justify-center gap-2 items-center">
-                    <Button className="bg-primary-foreground border text-foreground p-2 rounded-md ">
-                      Check Balance
+                  <h2 className="text-2xl font-bold tracking-tighter text-foreground">
+                    Your Wallets
+                  </h2>
+                  <div className="flex justify-center gap-2">
+                    <Button
+                      onClick={handleAddWallet}
+                      disabled={isLoading}
+                      className="bg-primary text-primary-foreground hover:bg-primary/90 transition-all cursor-pointer"
+                    >
+                      <PlusIcon size={16} />
+                      <p>Add Wallet</p>
                     </Button>
-                    <div>200 sol</div>
+
+                    <Button
+                      onClick={handleClearWallets}
+                      className="bg-destructive text-foreground hover:bg-destructive/90 transition-all cursor-pointer"
+                    >
+                      <Trash2 size={16} />
+                      Clear Wallets
+                    </Button>
                   </div>
                 </div>
 
-                <div className="">
-                  <p className="text-foreground font-medium">Public Key</p>
-                  <div className="flex justify-between text-muted-foreground p-1 ">
-                    <p>fndwfauifbaifbvaef</p>
-                    <Copy size={20} />
-                  </div>
-                </div>
-                <div className="">
-                  <p className="font-medium text-foreground">Private Key</p>
-                  <p className="text-sm  text-muted-foreground">
-                    fbauiefaierbf
-                  </p>
+                {/* Wallet List */}
+                <div className="space-y-4">
+                  {currentWallets.map((walletItem) => (
+                    <div
+                      key={walletItem.id}
+                      className="border border-border rounded-lg p-4 space-y-3 hover:bg-accent/5 transition-all duration-200"
+                    >
+                      <div className="flex justify-between items-center">
+                        <h3 className="font-semibold text-foreground">
+                          Wallet {walletItem.id + 1}
+                        </h3>
+                        <div className="flex gap-2 items-center">
+                          <Button
+                            onClick={() =>
+                              handleCheckBalance(walletItem.publicKey)
+                            }
+                            className="bg-primary/10 border border-primary text-foreground px-3 py-1 text-sm rounded-md hover:bg-primary/20 cursor-pointer"
+                          >
+                            Check Balance
+                          </Button>
+                          <button
+                            onClick={() => handleDeleteWallet(walletItem.id)}
+                            className="text-destructive hover:text-destructive/80 transition-all duration-200 p-2 rounded-md cursor-pointer"
+                          >
+                            <Trash2 size={18} />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Public Key */}
+                      <div>
+                        <label className="text-xs text-muted-foreground">
+                          Public Key
+                        </label>
+                        <div className="flex items-center gap-2 mt-1">
+                          <p className="flex-1 text-sm font-mono bg-muted px-3 py-2 rounded truncate">
+                            {walletItem.publicKey}
+                          </p>
+                          <button
+                            onClick={() =>
+                              copyToClipboard(
+                                walletItem.publicKey,
+                                "Public key"
+                              )
+                            }
+                            className="text-muted-foreground hover:text-foreground transition-all duration-200 cursor-pointer"
+                          >
+                            <Copy size={18} />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Private Key */}
+                      <div>
+                        <label className="text-xs text-muted-foreground">
+                          Private Key
+                        </label>
+                        <div className="flex items-center gap-2 mt-1">
+                          <p className="flex-1 text-sm font-mono bg-muted px-3 py-2 rounded truncate">
+                            {walletItem.isPrivateKeyVisible
+                              ? walletItem.privateKey
+                              : "••••••••••••••••"}
+                          </p>
+                          <button
+                            onClick={() =>
+                              togglePrivateKeyVisibility(walletItem.id)
+                            }
+                            disabled={isLoading}
+                            className="text-muted-foreground hover:text-foreground transition-all duration-200 cursor-pointer"
+                          >
+                            {walletItem.isPrivateKeyVisible ? (
+                              <EyeOff size={18} />
+                            ) : (
+                              <Eye size={18} />
+                            )}
+                          </button>
+                          {walletItem.isPrivateKeyVisible &&
+                            walletItem.privateKey && (
+                              <button
+                                onClick={() =>
+                                  copyToClipboard(
+                                    walletItem.privateKey!,
+                                    "Private key"
+                                  )
+                                }
+                                className="text-muted-foreground hover:text-foreground transition-all duration-200 cursor-pointer"
+                              >
+                                <Copy size={18} />
+                              </button>
+                            )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
-      </div>
-    </Container>
+      </Container>
+    </>
   );
 }

@@ -20,14 +20,14 @@ export const generateEthereumKeyPair =  (
 
   // const seed = mnemonicToSeedSync(mnemonic);
   let mnemonicphrase = ethers.Mnemonic.fromPhrase(mnemonic);
-  const path = `m/44'/60'/${walletId}'/0`; 
+  const path = `m/44'/60'/${walletId}'/0/0`; 
   const wallet = ethers.HDNodeWallet.fromMnemonic(mnemonicphrase, path);
   //the HDNodeWallet internally, uses the keccak algorithm and takes out 20 bytes from the public key and then appends 0x and returns it
 
   return {
     secretPhrase: mnemonic,
     privateKey: wallet.privateKey,
-    publicKey: wallet.publicKey
+    publicKey: wallet.address
   };
 };
 
