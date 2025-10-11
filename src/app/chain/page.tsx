@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect, Suspense } from "react";
+import axios from "axios";
 import {
   ChevronDown,
   Copy,
@@ -31,6 +32,13 @@ interface StoredWallet {
   publicKey: string;
 }
 
+interface AccountBalance{
+  wallet:string,
+  publicKey:string,
+  balance:string,
+  isBalanceVisible:boolean,
+}
+
 function ChainContent() {
   const searchParams = useSearchParams();
   const wallet = searchParams.get("wallet") || "solana";
@@ -41,6 +49,7 @@ function ChainContent() {
   const [ethWallets, setEthWallets] = useState<Wallet[]>([]);
   const [isDark, setIsDark] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [balances, setBalances] = useState<AccountBalance[]>([]);
 
   const currentWallets = wallet === "solana" ? solWallets : ethWallets;
   const setCurrentWallets =
@@ -266,10 +275,84 @@ function ChainContent() {
     toast.success(`${label} copied to clipboard!`);
   };
 
-  // TODO: Implement Check Balance functionality
-  // This should fetch the balance from the blockchain for the given public key
   const handleCheckBalance = async (publicKey: string) => {
-    toast.info("Check Balance feature coming soon!");
+    setIsLoading(true);
+
+    try {
+      if (wallet === "solana") {
+        const res = await axios.post(
+          "https://solana-mainnet.g.alchemy.com/v2/eAmgKxm2U2tb3LrxE79Nf",
+          {
+            jsonrpc: "2.0",
+            id: 1,
+            method: "getAccountInfo",
+            params: [publicKey],
+          },
+          {
+            headers: {
+              "Content-Type": "application/json",
+            },
+          }
+        );
+        const lamports = res.data?.result?.value?.lamports ?? 0;
+        const sol = lamports / 1_000_000_000;
+
+        setBalances((prev) => {
+          const existing = prev.filter((b) => b.publicKey !== publicKey);
+          return [
+            ...existing,
+            {
+              wallet: "solana",
+              publicKey,
+              balance: sol.toFixed(4),
+              isBalanceVisible: true,
+            },
+          ];
+        });
+
+        toast.success(`Balance: ${sol.toFixed(4)} SOL`);
+      } else if (wallet === "ethereum") {
+        const res = await axios.post(
+          "https://eth-mainnet.g.alchemy.com/v2/eAmgKxm2U2tb3LrxE79Nf",
+          {
+            jsonrpc: "2.0",
+            id: 1,
+            method: "eth_getBalance",
+            params: [publicKey, "latest"],
+          },
+          {
+            headers: {
+              "Content-Type": "application/json",
+            },
+          }
+        );
+
+        const hexBalance = res.data.result;
+        const eth = Number(BigInt(hexBalance) / 10n ** 18n);
+        const ethFraction = Number(BigInt(hexBalance) % 10n ** 18n) / 1e18;
+        const totalEth = eth + ethFraction;
+
+        setBalances((prev) => {
+          const existing = prev.filter((b) => b.publicKey !== publicKey);
+          return [
+            ...existing,
+            {
+              wallet: "ethereum",
+              publicKey,
+              balance: totalEth.toFixed(4),
+              isBalanceVisible: true,
+            },
+          ];
+        });
+
+        toast.success(`Balance: ${totalEth.toFixed(4)} ETH`);
+      }
+    } catch (error) {
+      toast.error("Failed to fetch balance");
+      console.error(error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const secretPhraseWords = seedphrase.split(" ").filter((word) => word);
@@ -418,7 +501,15 @@ function ChainContent() {
                             }
                             className="bg-primary/10 border border-primary text-foreground px-3 py-1 text-sm rounded-md hover:bg-primary/20 cursor-pointer"
                           >
-                            Check Balance
+                            {balances.find(
+                              (b) => b.publicKey === walletItem.publicKey
+                            )
+                              ? `Balance : ${
+                                  balances.find(
+                                    (b) => b.publicKey === walletItem.publicKey
+                                  )?.balance
+                                } ${wallet === "solana" ? "SOL" : "ETH"}`
+                              : "Check Balance"}
                           </Button>
                           <button
                             onClick={() => handleDeleteWallet(walletItem.id)}
