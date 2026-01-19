@@ -1,0 +1,210 @@
+# ============================================================
+# CD Pipeline for Web-Based HD Wallet
+# ============================================================
+# This pipeline handles Continuous Deployment to Kubernetes
+# and performs Dynamic Application Security Testing (DAST).
+#
+# Triggered after successful CI pipeline completion.
+# ============================================================
+
+name: CD Pipeline
+
+on:
+  workflow_run:
+    workflows: ["CI Pipeline"]
+    types:
+      - completed
+    branches:
+      - main
+  workflow_dispatch:  # Allow manual trigger
+    inputs:
+      image_tag:
+        description: 'Docker image tag to deploy'
+        required: false
+        default: 'latest'
+
+env:
+  IMAGE_NAME: web-based-wallet
+
+jobs:
+  # ============================================================
+  # JOB 1: Deploy to Kubernetes
+  # ============================================================
+  deploy:
+    name: Deploy to Kubernetes
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+
+    steps:
+      # ----------------------------------------------------------
+      # 1. Checkout Source Code
+      # ----------------------------------------------------------
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      # ----------------------------------------------------------
+      # 2. Configure kubectl
+      # ----------------------------------------------------------
+      # WHY: kubectl is needed to interact with Kubernetes cluster.
+      # The KUBECONFIG secret contains cluster credentials.
+      # ----------------------------------------------------------
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'latest'
+
+      # ----------------------------------------------------------
+      # 3. Configure Kubernetes credentials
+      # ----------------------------------------------------------
+      - name: Configure Kubernetes credentials
+        run: |
+          mkdir -p $HOME/.kube
+          echo "${{ secrets.KUBECONFIG }}" | base64 -d > $HOME/.kube/config
+          chmod 600 $HOME/.kube/config
+        continue-on-error: true
+
+      # ----------------------------------------------------------
+      # 4. Update Deployment Image
+      # ----------------------------------------------------------
+      # WHY: Replace placeholder with actual DockerHub username
+      # to pull the correct image from registry.
+      # ----------------------------------------------------------
+      - name: Update Kubernetes manifests
+        run: |
+          sed -i "s|DOCKERHUB_USERNAME|${{ secrets.DOCKERHUB_USERNAME }}|g" k8s/deployment.yaml
+          cat k8s/deployment.yaml
+
+      # ----------------------------------------------------------
+      # 5. Deploy to Kubernetes
+      # ----------------------------------------------------------
+      # WHY: Apply manifests to create/update deployment and service.
+      # Using --dry-run for demo if no cluster is configured.
+      # ----------------------------------------------------------
+      - name: Deploy to Kubernetes
+        run: |
+          if kubectl cluster-info 2>/dev/null; then
+            echo "Deploying to Kubernetes cluster..."
+            kubectl apply -f k8s/deployment.yaml
+            kubectl apply -f k8s/service.yaml
+            kubectl rollout status deployment/web-wallet-deployment --timeout=120s
+            echo "Deployment successful!"
+            kubectl get pods -l app=web-wallet
+            kubectl get svc web-wallet-service
+          else
+            echo "No Kubernetes cluster configured."
+            echo "Running dry-run to validate manifests..."
+            kubectl apply -f k8s/deployment.yaml --dry-run=client
+            kubectl apply -f k8s/service.yaml --dry-run=client
+            echo "Manifests are valid!"
+          fi
+        continue-on-error: true
+
+  # ============================================================
+  # JOB 2: DAST - Dynamic Application Security Testing
+  # ============================================================
+  dast:
+    name: DAST Security Scan
+    runs-on: ubuntu-latest
+    needs: deploy
+    if: always()
+
+    steps:
+      # ----------------------------------------------------------
+      # 1. Checkout
+      # ----------------------------------------------------------
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      # ----------------------------------------------------------
+      # 2. Setup Docker for local testing
+      # ----------------------------------------------------------
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # ----------------------------------------------------------
+      # 3. Login to DockerHub
+      # ----------------------------------------------------------
+      - name: Login to DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # ----------------------------------------------------------
+      # 4. Run Application for DAST
+      # ----------------------------------------------------------
+      # WHY: DAST requires a running application to test against.
+      # We spin up the container locally for security scanning.
+      # ----------------------------------------------------------
+      - name: Start application for DAST
+        run: |
+          docker pull ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:latest || \
+          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:latest .
+
+          docker run -d -p 3000:3000 --name dast-target ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:latest
+
+          echo "Waiting for application to start..."
+          sleep 20
+
+          curl -f http://localhost:3000 || echo "App may still be starting..."
+
+      # ----------------------------------------------------------
+      # 5. DAST with OWASP ZAP (Baseline Scan)
+      # ----------------------------------------------------------
+      # WHY: Dynamic Application Security Testing finds runtime
+      # vulnerabilities like XSS, CSRF, and injection attacks
+      # that static analysis cannot detect. Uses OWASP ZAP.
+      # ----------------------------------------------------------
+      - name: Run OWASP ZAP Baseline Scan
+        uses: zaproxy/action-baseline@v0.12.0
+        with:
+          target: 'http://localhost:3000'
+          rules_file_name: '.zap/rules.tsv'
+          cmd_options: '-a'
+        continue-on-error: true
+
+      # ----------------------------------------------------------
+      # 6. Upload DAST Report
+      # ----------------------------------------------------------
+      - name: Upload ZAP Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: zap-report
+          path: report_html.html
+          retention-days: 30
+        continue-on-error: true
+
+      # ----------------------------------------------------------
+      # 7. Cleanup
+      # ----------------------------------------------------------
+      - name: Cleanup DAST container
+        if: always()
+        run: |
+          docker stop dast-target || true
+          docker rm dast-target || true
+
+  # ============================================================
+  # JOB 3: CD Summary
+  # ============================================================
+  cd-summary:
+    name: CD Summary
+    runs-on: ubuntu-latest
+    needs: [deploy, dast]
+    if: always()
+
+    steps:
+      - name: CD Pipeline Summary
+        run: |
+          echo "============================================"
+          echo "       CD PIPELINE EXECUTION SUMMARY       "
+          echo "============================================"
+          echo ""
+          echo "Repository: ${{ github.repository }}"
+          echo "Branch: ${{ github.ref_name }}"
+          echo "Triggered by: ${{ github.actor }}"
+          echo ""
+          echo "Job Results:"
+          echo "  - Deploy: ${{ needs.deploy.result }}"
+          echo "  - DAST: ${{ needs.dast.result }}"
+          echo ""
+          echo "============================================"
