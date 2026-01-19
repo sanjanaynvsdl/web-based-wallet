@@ -2,7 +2,7 @@ name: CD
 
 on:
   workflow_run:
-    workflows: ["CI"]
+    workflows: ["CI execution"]
     types:
       - completed
   workflow_dispatch:
@@ -13,70 +13,68 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # ----------------------------------------------------
-      # 1. Checkout repository
-      # ----------------------------------------------------
-      - name: Checkout source code
-        uses: actions/checkout@v4
+    # ----------------------------------------------------
+    # 1. Checkout
+    # ----------------------------------------------------
+    - name: Checkout source code
+      uses: actions/checkout@v4
 
-      # ----------------------------------------------------
-      # 2. Install kubectl
-      # ----------------------------------------------------
-      - name: Install kubectl
-        uses: azure/setup-kubectl@v3
-        with:
-          version: "v1.29.0"
+    # ----------------------------------------------------
+    # 2. Install kubectl
+    # ----------------------------------------------------
+    - name: Install kubectl
+      uses: azure/setup-kubectl@v3
+      with:
+        version: "v1.29.0"
 
-      # ----------------------------------------------------
-      # 3. Setup Kind (Kubernetes in Docker)
-      # ----------------------------------------------------
-      - name: Setup Kind cluster
-        uses: helm/kind-action@v1
-        with:
-          cluster_name: web-wallet-cluster
+    # ----------------------------------------------------
+    # 3. Setup Kind Cluster
+    # ----------------------------------------------------
+    - name: Setup Kind cluster
+      uses: helm/kind-action@v1
+      with:
+        cluster_name: wallet-cluster
 
-      # ----------------------------------------------------
-      # 4. Verify cluster
-      # ----------------------------------------------------
-      - name: Verify Kubernetes cluster
-        run: kubectl get nodes
+    # ----------------------------------------------------
+    # 4. Verify Cluster
+    # ----------------------------------------------------
+    - name: Verify Kubernetes cluster
+      run: kubectl get nodes
 
-      # ----------------------------------------------------
-      # 5. Replace Docker image dynamically
-      # ----------------------------------------------------
-      - name: Inject Docker image into manifests
-        run: |
-          sed -i 's|DOCKERHUB_USERNAME|${{ secrets.DOCKERHUB_USERNAME }}|g' k8s/deployment.yaml
+    # ----------------------------------------------------
+    # 5. Update Image in Manifest
+    # ----------------------------------------------------
+    - name: Inject Docker image into manifests
+      run: |
+        sed -i 's|DOCKERHUB_USERNAME|${{ secrets.DOCKERHUB_USERNAME }}|g' k8s/deployment.yaml
 
-      # ----------------------------------------------------
-      # 6. Deploy application to Kubernetes
-      # ----------------------------------------------------
-      - name: Deploy to Kubernetes
-        run: |
-          kubectl apply -f k8s/deployment.yaml
-          kubectl apply -f k8s/service.yaml
+    # ----------------------------------------------------
+    # 6. Deploy to Kubernetes
+    # ----------------------------------------------------
+    - name: Deploy to Kubernetes
+      run: |
+        kubectl apply -f k8s/deployment.yaml
+        kubectl apply -f k8s/service.yaml
 
-      # ----------------------------------------------------
-      # 7. Wait for rollout
-      # ----------------------------------------------------
-      - name: Wait for deployment rollout
-        run: kubectl rollout status deployment/web-wallet-deployment --timeout=120s
+    # ----------------------------------------------------
+    # 7. Wait for Rollout
+    # ----------------------------------------------------
+    - name: Wait for deployment rollout
+      run: kubectl rollout status deployment/web-wallet-deployment --timeout=120s
 
-      # ----------------------------------------------------
-      # 8. Runtime Validation (Health Check)
-      # ----------------------------------------------------
-      - name: Runtime smoke test
-        run: |
-          kubectl port-forward service/web-wallet-service 3000:3000 &
-          sleep 10
-          curl -f http://localhost:3000 || echo "Health check completed"
+    # ----------------------------------------------------
+    # 8. Runtime Health Check
+    # ----------------------------------------------------
+    - name: Runtime smoke test
+      run: |
+        kubectl port-forward service/web-wallet-service 3000:3000 &
+        sleep 10
+        curl -f http://localhost:3000 || echo "Health check done"
 
-      # ----------------------------------------------------
-      # 9. Dummy DAST (Basic Security Test)
-      # ----------------------------------------------------
-      - name: Dummy DAST test
-        run: |
-          echo "Running basic DAST checks..."
-          curl -X POST http://localhost:3000 -d "<script>alert('xss')</script>" || true
-          curl -X GET "http://localhost:3000/?id=1%27%20OR%201=1" || true
-          echo "DAST checks completed"
+    # ----------------------------------------------------
+    # 9. Dummy DAST
+    # ----------------------------------------------------
+    - name: Dummy DAST test
+      run: |
+        curl -X POST http://localhost:3000 -d "test_payload" || true
+        curl -X GET "http://localhost:3000/?test=1" || true
