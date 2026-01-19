@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: web-wallet
-          image: DOCKERHUB_USERNAME/web-based-wallet:latest
-          imagePullPolicy: Always
+          image: sanjanaynvsdl/web-based-wallet:latest
+          imagePullPolicy: Never
           ports:
             - containerPort: 3000
