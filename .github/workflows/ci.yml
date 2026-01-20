@@ -16,13 +16,13 @@ jobs:
 
     steps:
     # ----------------------------------------------------
-    # 1. Checkout
+    # 1. Checkout - Retrieve source code
     # ----------------------------------------------------
     - name: Checkout source code
       uses: actions/checkout@v4
 
     # ----------------------------------------------------
-    # 2. Setup Node.js
+    # 2. Setup Runtime - Install Node.js runtime
     # ----------------------------------------------------
     - name: Set up Node.js 20
       uses: actions/setup-node@v4
@@ -31,14 +31,19 @@ jobs:
         cache: npm
 
     # ----------------------------------------------------
-    # 3. Linting (ESLint)
+    # 3. Install Dependencies
+    # ----------------------------------------------------
+    - name: Install dependencies
+      run: npm ci
+
+    # ----------------------------------------------------
+    # 4. Linting - Enforce coding standards
     # ----------------------------------------------------
     - name: Run ESLint (Linting)
       run: npm run lint
-      continue-on-error: true
 
     # ----------------------------------------------------
-    # 4. SAST – CodeQL
+    # 5. SAST - Detect code-level vulnerabilities
     # ----------------------------------------------------
     - name: Initialize CodeQL
       uses: github/codeql-action/init@v3
@@ -49,27 +54,27 @@ jobs:
       uses: github/codeql-action/analyze@v3
 
     # ----------------------------------------------------
-    # 5. SCA – Dependency Vulnerability Scan
+    # 6. SCA - Detect vulnerable dependencies
     # ----------------------------------------------------
     - name: npm audit (Dependency Check)
       run: npm audit --audit-level=high
       continue-on-error: true
 
     # ----------------------------------------------------
-    # 6. Unit Testing
+    # 7. Unit Tests - Validate business logic
     # ----------------------------------------------------
     - name: Run Unit Tests
       run: npm test --if-present
       continue-on-error: true
 
     # ----------------------------------------------------
-    # 7. Build Application
+    # 8. Build - Package application
     # ----------------------------------------------------
     - name: Build with npm
-      run: npm ci && npm run build
+      run: npm run build
 
     # ----------------------------------------------------
-    # 8. Docker Build
+    # 9. Docker Build - Create container image
     # ----------------------------------------------------
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
@@ -79,7 +84,7 @@ jobs:
         docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/web-based-wallet:latest .
 
     # ----------------------------------------------------
-    # 9. Trivy – Container Image Security Scan
+    # 10. Image Scan - Detect OS & library vulnerabilities
     # ----------------------------------------------------
     - name: Run Trivy vulnerability scan
       uses: aquasecurity/trivy-action@0.24.0
@@ -96,7 +101,7 @@ jobs:
       continue-on-error: true
 
     # ----------------------------------------------------
-    # 10. Docker Container Basic Testing
+    # 11. Runtime Test - Validate container behavior
     # ----------------------------------------------------
     - name: Run container and test
       run: |
@@ -108,7 +113,7 @@ jobs:
         docker rm test-app
 
     # ----------------------------------------------------
-    # 11. Login to DockerHub
+    # 12. Registry Push - Publish trusted image
     # ----------------------------------------------------
     - name: Login to DockerHub
       uses: docker/login-action@v3
@@ -116,9 +121,6 @@ jobs:
         username: ${{ secrets.DOCKERHUB_USERNAME }}
         password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-    # ----------------------------------------------------
-    # 12. Push Docker Image
-    # ----------------------------------------------------
     - name: Push Image to DockerHub
       run: |
         docker push ${{ secrets.DOCKERHUB_USERNAME }}/web-based-wallet:latest
