@@ -18,7 +18,7 @@ export const Hero = () => {
         </p>
         <p className="sm:max-w-3xl max-w-2xl text-foreground font-bold sm:text-4xl text-2xl tracking-tighter text-center">Choose where You&rsquo;d like to start.{" "}</p>
         <p className="text-muted-foreground text-lg md:text-xl mt-4 text-center">
-          A web based wallet helps to create wallets across chains
+          A HD Wallet helps to create wallets across chains
         </p>
       </div>
 
